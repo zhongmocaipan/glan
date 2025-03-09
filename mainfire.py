@@ -24,7 +24,7 @@ def update_temperature(T, alpha=0.99):
 class Lan(torch.nn.Module):
     def __init__(self, shape, initial_temp=1.0, alpha=0.99):
         super(Lan, self).__init__()
-        self.phi = torch.nn.Parameter(torch.zeros(shape), requires_grad=True)
+        self.phi = torch.nn.Parameter(torch.zeros(shape).cuda(), requires_grad=True)  # 参数放在GPU上
         self.T = initial_temp  # 初始温度
         self.alpha = alpha  # 降温系数
 
@@ -45,7 +45,7 @@ else:
     raise NotImplementedError
 
 model_generator = get_model
-model = model_generator()
+model = model_generator().cuda()  # 确保模型在GPU上
 
 # 设置模型参数的 requires_grad
 if args.method == "finetune":
@@ -65,11 +65,11 @@ inner_loop = 20  # 模拟退火的迭代次数
 p_bar = tqdm(dataloader, ncols=100, desc=f"{args.method}_{args.self_loss}")
 
 for lq, gt in p_bar:
-    lq = lq.cpu()
-    gt = gt.cpu()
-    lan = Lan(lq.shape, initial_temp=1.0, alpha=0.99).cpu() if args.method == "lan" else torch.nn.Identity()
+    lq = lq.cuda()  # 将输入数据转移到GPU
+    gt = gt.cuda()  # 将GT数据转移到GPU
+    lan = Lan(lq.shape, initial_temp=1.0, alpha=0.99).cuda() if args.method == "lan" else torch.nn.Identity().cuda()  # lan也放到GPU上
     tmp_batch_size = lq.shape[0]
-    model = model_generator().cpu()
+    model = model_generator().cuda()  # 确保模型是GPU版本
 
     for param in model.parameters():
         param.requires_grad = args.method == "finetune"
@@ -82,9 +82,9 @@ for lq, gt in p_bar:
     prev_phi = None
     for i in range(inner_loop):
         optimizer.zero_grad()
-        adapted_lq = lan(lq).cpu()
+        adapted_lq = lan(lq)  
         with torch.no_grad():
-            pred = model(adapted_lq).clip(0, 1).cpu()
+            pred = model(adapted_lq).clip(0, 1)
         loss = loss_func(adapted_lq, model, i, inner_loop)
         loss.backward()
         optimizer.step()

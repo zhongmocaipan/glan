@@ -1,6 +1,6 @@
-polyu*
-Restormer*
-*.pth
+# polyu*
+# Restormer*
+# *.pth
 __pycache__
 .vscode
 *.csv
